@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from core.normalizer import clean_text, normalize_barcode, normalize_header
+from core.paths import ASSETS_DIR, DATA_DIR
 
 
 ALIASES = {
@@ -57,9 +58,12 @@ def prepare_catalog(source: str | Path, output: str | Path) -> dict:
     result = {"items": items, "conflicts": conflicts}
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    payload = json.dumps(result, ensure_ascii=False, indent=2)
+    output_path.write_text(payload, encoding="utf-8")
+    if output_path.resolve() == (DATA_DIR / "catalog_index.json").resolve():
+        mirror_path = ASSETS_DIR / "catalog_index.json"
+        mirror_path.parent.mkdir(parents=True, exist_ok=True)
+        mirror_path.write_text(payload, encoding="utf-8")
     return result
 
 

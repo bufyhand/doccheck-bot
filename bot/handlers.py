@@ -17,7 +17,7 @@ from core.catalog import Catalog, CatalogError
 from core.file_reader import DocumentReadError
 from core.gigachat_client import GigaChatClient
 from core.models import CheckResult
-from core.paths import CATALOG_PATH, REPORT_DIR, UPLOAD_DIR
+from core.paths import CATALOG_PATH, DATA_DIR, PROJECT_ROOT, REPORT_DIR, UPLOAD_DIR
 
 
 router = Router()
@@ -61,10 +61,7 @@ async def help_command(message: Message) -> None:
 @router.message(Command("new"))
 async def new_check(message: Message, state: FSMContext) -> None:
     if not CATALOG_PATH.exists():
-        await message.answer(
-            "Машинный справочник номенклатуры не найден. "
-            "Нужно подготовить data/catalog_index.json."
-        )
+        await message.answer(_catalog_status())
         return
     previous = await state.get_data()
     _cleanup_files(previous.get("order_path"), previous.get("invoice_path"))
@@ -192,7 +189,10 @@ def _catalog_status() -> str:
     except CatalogError:
         return (
             "Справочник номенклатуры не найден.\n"
-            f"Путь поиска: {CATALOG_PATH}"
+            f"Корень проекта: {PROJECT_ROOT}\n"
+            f"Путь поиска: {CATALOG_PATH}\n"
+            f"Папка data существует: {'да' if DATA_DIR.exists() else 'нет'}\n"
+            f"Файлы в data: {_data_dir_listing()}"
         )
     modified = datetime.fromtimestamp(CATALOG_PATH.stat().st_mtime).strftime(
         "%Y-%m-%d %H:%M"
@@ -201,6 +201,13 @@ def _catalog_status() -> str:
         f"Справочник найден. Штрихкодов: {catalog.barcode_count}. "
         f"Изменен: {modified}."
     )
+
+
+def _data_dir_listing() -> str:
+    if not DATA_DIR.exists():
+        return "папка не найдена"
+    files = sorted(path.name for path in DATA_DIR.iterdir())
+    return ", ".join(files) if files else "папка пустая"
 
 
 def _cleanup_files(*paths: str | Path | None) -> None:

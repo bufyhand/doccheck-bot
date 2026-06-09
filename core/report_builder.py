@@ -9,6 +9,7 @@ from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from core.models import CheckResult, DocumentRow, MatchResult
+from core.paths import REPORT_DIR
 
 
 MONEY_DIFF_THRESHOLD_PERCENT = Decimal("0.5")
@@ -49,7 +50,7 @@ MISSING_EXTRA_HEADERS = [
 
 
 def build_report(result: CheckResult, output: str | Path | None = None) -> Path:
-    output_path = Path(output) if output else Path("temp/reports") / (
+    output_path = Path(output) if output else REPORT_DIR / (
         f"doccheck_report_{datetime.now():%Y-%m-%d_%H-%M}.xlsx"
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)

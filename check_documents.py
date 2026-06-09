@@ -5,6 +5,7 @@ import argparse
 from core.catalog import Catalog
 from core.file_reader import read_document
 from core.matcher import reconcile
+from core.paths import CATALOG_PATH, REPORT_DIR
 from core.report_builder import build_report
 
 
@@ -20,8 +21,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Сверить заказ и счет")
     parser.add_argument("order", help="Excel-файл заказа")
     parser.add_argument("invoice", help="Excel-файл счета")
-    parser.add_argument("--catalog", default="data/catalog_index.json")
-    parser.add_argument("-o", "--output", default="temp/reports/doccheck_report.xlsx")
+    parser.add_argument("--catalog", default=str(CATALOG_PATH))
+    parser.add_argument("-o", "--output", default=str(REPORT_DIR / "doccheck_report.xlsx"))
     args = parser.parse_args()
     result, report_path = check_documents(
         args.order, args.invoice, args.catalog, args.output
@@ -33,4 +34,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

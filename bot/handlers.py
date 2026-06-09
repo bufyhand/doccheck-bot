@@ -17,12 +17,10 @@ from core.catalog import Catalog, CatalogError
 from core.file_reader import DocumentReadError
 from core.gigachat_client import GigaChatClient
 from core.models import CheckResult
+from core.paths import CATALOG_PATH, REPORT_DIR, UPLOAD_DIR
 
 
 router = Router()
-CATALOG_PATH = Path("data/catalog_index.json")
-UPLOAD_DIR = Path("temp/uploads")
-REPORT_DIR = Path("temp/reports")
 NEW_CHECK_HINT = """Перед загрузкой файлов проверьте их, пожалуйста.
 
 Для более точной сверки оставьте в Excel только строки с товарами.
@@ -192,7 +190,10 @@ def _catalog_status() -> str:
     try:
         catalog = Catalog.load(CATALOG_PATH)
     except CatalogError:
-        return "Справочник номенклатуры не найден."
+        return (
+            "Справочник номенклатуры не найден.\n"
+            f"Путь поиска: {CATALOG_PATH}"
+        )
     modified = datetime.fromtimestamp(CATALOG_PATH.stat().st_mtime).strftime(
         "%Y-%m-%d %H:%M"
     )

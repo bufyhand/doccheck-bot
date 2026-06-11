@@ -82,6 +82,98 @@ class ReconciliationTest(TestCase):
             self.assertEqual(result.rows[0].status, "ОК")
             self.assertIn("сопоставлены напрямую", result.rows[0].comment)
 
+    def test_amount_difference_has_manager_comment(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            order_path = root / "order.xlsx"
+            invoice_path = root / "invoice.xlsx"
+            report_path = root / "report.xlsx"
+            _document(order_path, [["Товар сумма", "111", 5, 507.2, 2536]])
+            _document(invoice_path, [["Товар сумма", "111", 5, 538.9, 2694.5]])
+
+            result = reconcile(
+                read_document(order_path, "order"),
+                read_document(invoice_path, "invoice"),
+                Catalog(items_by_barcode={"111": {"item_id": "a"}}, conflicts={}),
+            )
+            report = build_report(result, report_path)
+            workbook = load_workbook(report, read_only=True, data_only=True)
+            rows = list(workbook["Расхождения"].iter_rows(min_row=2, values_only=True))
+            workbook.close()
+
+            self.assertEqual(result.rows[0].status, "Сумма отличается")
+            self.assertEqual(rows[0][0], "Сумма отличается")
+            self.assertEqual(rows[0][-1], "Позиция требует проверки.")
+
+    def test_duplicate_invoice_rows_are_aggregated_by_item_id(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            order_path = root / "order.xlsx"
+            invoice_path = root / "invoice.xlsx"
+            _document(order_path, [["Товар A", "001", 10, 5, 50]])
+            _document(
+                invoice_path,
+                [
+                    ["Товар A часть 1", "002", 4, 5, 20],
+                    ["Товар A часть 2", "003", 6, 5, 30],
+                ],
+            )
+            catalog = Catalog(
+                items_by_barcode={
+                    "001": {"item_id": "a"},
+                    "002": {"item_id": "a"},
+                    "003": {"item_id": "a"},
+                },
+                conflicts={},
+            )
+
+            result = reconcile(
+                read_document(order_path, "order"),
+                read_document(invoice_path, "invoice"),
+                catalog,
+            )
+
+            self.assertEqual(len(result.rows), 1)
+            self.assertEqual(result.rows[0].status, "ОК")
+            self.assertEqual(result.rows[0].invoice.quantity, 10)
+            self.assertEqual(result.rows[0].invoice.amount, 50)
+            self.assertEqual(
+                result.rows[0].invoice.raw["aggregation_status"], "success"
+            )
+
+    def test_duplicate_invoice_rows_with_remaining_difference_get_aggregation_comment(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            order_path = root / "order.xlsx"
+            invoice_path = root / "invoice.xlsx"
+            report_path = root / "report.xlsx"
+            _document(order_path, [["Товар A", "999", 10, 5, 50]])
+            _document(
+                invoice_path,
+                [
+                    ["Товар A часть 1", "999", 4, 5, 20],
+                    ["Товар A часть 2", "999", 7, 5, 35],
+                ],
+            )
+
+            result = reconcile(
+                read_document(order_path, "order"),
+                read_document(invoice_path, "invoice"),
+                Catalog(items_by_barcode={}, conflicts={}),
+            )
+            report = build_report(result, report_path)
+            workbook = load_workbook(report, read_only=True, data_only=True)
+            rows = list(workbook["Расхождения"].iter_rows(min_row=2, values_only=True))
+            workbook.close()
+
+            self.assertEqual(len(result.rows), 1)
+            self.assertEqual(result.rows[0].status, "Количество отличается")
+            self.assertEqual(result.rows[0].invoice.quantity, 11)
+            self.assertEqual(
+                rows[0][-1],
+                "Позиция объединена по повторяющемуся штрихкоду в счёте, но количество или сумма отличаются.",
+            )
+
     def test_discounted_invoice_uses_final_amount_as_effective_price(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)

@@ -18,13 +18,13 @@ class ReportBuilderTest(TestCase):
                 invoice=ParsedDocument(Path("invoice.xlsx"), "invoice", 1, {}, []),
                 rows=[
                     MatchResult(
-                        status="Проверить вручную",
+                        status="Сумма отличается",
                         order=_row("order", "Товар мелкая разница", "111", 10, 100, 1000),
                         invoice=_row("invoice", "Товар мелкая разница", "111", 10, 100, 1003),
                         quantity_status="Количество совпало",
                         price_status="Цена совпала",
                         amount_status="Сумма отличается",
-                        comment="Суммы строк отличаются при совпавших цене и количестве",
+                        comment="Суммы строк отличаются при совпавшем количестве",
                     ),
                     MatchResult(
                         status="Количество отличается",
@@ -48,37 +48,24 @@ class ReportBuilderTest(TestCase):
             report = build_report(result, output)
             workbook = load_workbook(report, read_only=True, data_only=True)
 
-            self.assertEqual(
-                workbook.sheetnames,
-                [
-                    "Итог",
-                    "Расхождения",
-                    "Нет-Лишнее в счете",
-                    "Проверить вручную",
-                    "Тех_данные",
-                ],
-            )
+            sheetnames = workbook.sheetnames
 
             discrepancies = workbook["Расхождения"]
             headers = [cell.value for cell in next(discrepancies.iter_rows(max_row=1))]
-            self.assertIn("Разница по количеству", headers)
-            self.assertIn("Разница по сумме, ₽", headers)
-            self.assertIn("Разница по сумме, %", headers)
             rows = list(discrepancies.iter_rows(min_row=2, values_only=True))
-            self.assertEqual(len(rows), 1)
-            self.assertEqual(rows[0][0], "Количество отличается")
-            self.assertEqual(rows[0][8], -2)
-            self.assertEqual(rows[0][13], -200)
-            self.assertEqual(rows[0][14], "-20.00%")
 
             missing_extra = workbook["Нет-Лишнее в счете"]
-            headers = [cell.value for cell in next(missing_extra.iter_rows(max_row=1))]
-            self.assertEqual(headers[0], "Статус")
+            missing_headers = [
+                cell.value for cell in next(missing_extra.iter_rows(max_row=1))
+            ]
             statuses = [
                 row[0]
                 for row in missing_extra.iter_rows(min_row=2, values_only=True)
             ]
-            self.assertEqual(statuses, ["Нет в счете", "Лишнее в счете"])
+            comments = [
+                row[-1]
+                for row in missing_extra.iter_rows(min_row=2, values_only=True)
+            ]
 
             summary = {
                 row[0]: row[1]
@@ -88,7 +75,44 @@ class ReportBuilderTest(TestCase):
             self.assertEqual(
                 summary["Скрыто мелких денежных расхождений < 0,5%"], 1
             )
+            tech_values = [
+                value
+                for row in workbook["Тех_данные"].iter_rows(values_only=True)
+                for value in row
+                if value
+            ]
+            manual_rows = list(
+                workbook["Проверить вручную"].iter_rows(min_row=2, values_only=True)
+            )
             workbook.close()
+
+            self.assertEqual(
+                sheetnames,
+                [
+                    "Итог",
+                    "Расхождения",
+                    "Нет-Лишнее в счете",
+                    "Проверить вручную",
+                    "Тех_данные",
+                ],
+            )
+            self.assertIn("Разница по количеству", headers)
+            self.assertIn("Разница по сумме, ₽", headers)
+            self.assertIn("Разница по сумме, %", headers)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0][0], "Количество отличается")
+            self.assertEqual(rows[0][8], -2)
+            self.assertEqual(rows[0][13], -200)
+            self.assertEqual(rows[0][14], "-20.00%")
+            self.assertIn(rows[0][15], (None, ""))
+            self.assertEqual(missing_headers[0], "Статус")
+            self.assertEqual(statuses, ["Нет в счете", "Лишнее в счете"])
+            self.assertEqual(comments, ["Нет в счёте.", "Нет в заказе."])
+            self.assertIn(
+                "Суммы строк отличаются при совпавшем количестве",
+                tech_values,
+            )
+            self.assertEqual(manual_rows, [])
 
 
 def _row(

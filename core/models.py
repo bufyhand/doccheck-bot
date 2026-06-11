@@ -41,6 +41,7 @@ class MatchResult:
     price_status: str = ""
     amount_status: str = ""
     comment: str = ""
+    technical_comment: str = ""
 
     def to_context(self) -> dict[str, Any]:
         def row_data(row: DocumentRow | None) -> dict[str, Any] | None:
@@ -60,6 +61,7 @@ class MatchResult:
             "price_status": self.price_status,
             "amount_status": self.amount_status,
             "comment": self.comment,
+            "technical_comment": self.technical_comment,
         }
 
 
@@ -80,6 +82,7 @@ class CheckResult:
             "Сопоставлено": sum(1 for row in self.rows if row.order and row.invoice),
             "ОК": statuses.get("ОК", 0),
             "Цена отличается": statuses.get("Цена отличается", 0),
+            "Сумма отличается": statuses.get("Сумма отличается", 0),
             "Количество отличается": statuses.get("Количество отличается", 0),
             "Цена и количество отличаются": statuses.get(
                 "Цена и количество отличаются", 0

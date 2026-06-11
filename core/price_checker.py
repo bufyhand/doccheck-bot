@@ -45,15 +45,6 @@ def compare_price(order: DocumentRow, invoice: DocumentRow) -> tuple[str, str]:
 def compare_amount(order: DocumentRow, invoice: DocumentRow) -> tuple[str, str]:
     if order.amount is None or invoice.amount is None:
         return "Сумма отсутствует", ""
-    errors = []
-    if order.quantity is not None and order.price is not None:
-        if not money_equal(order.quantity * order.price, order.amount):
-            errors.append("сумма заказа не сходится с количеством и ценой")
-    if invoice.quantity is not None and invoice.price is not None:
-        if not money_equal(invoice.quantity * invoice.price, invoice.amount):
-            errors.append("сумма счета не сходится с количеством и ценой")
-    if errors:
-        return "Проверить вручную", "; ".join(errors)
     if money_equal(order.amount, invoice.amount):
         return "Сумма совпала", ""
     return "Сумма отличается", ""
@@ -74,4 +65,3 @@ def _looks_like_integer_ratio(left: Decimal, right: Decimal) -> bool:
     ratio = max(left, right) / min(left, right)
     nearest = ratio.quantize(Decimal("1"))
     return nearest > 1 and abs(ratio - nearest) <= Decimal("0.02")
-
